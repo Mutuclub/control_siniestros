@@ -118,6 +118,7 @@ table.tb td{padding:8px;border-bottom:1px solid var(--borde)}
 <body>
 <header class="app">
   <div class="logo">Siniestros y Grúas<small>Arts Nova MutuClub</small></div>
+  <span class="chip" id="chipRed" style="display:none"></span>
   <span class="chip" id="chipUsuario" style="display:none"></span>
   <button class="btn mini sec no-print" id="btnSalir" style="display:none">Salir</button>
 </header>
@@ -186,8 +187,10 @@ const DB = {
 function bit(accion){
   const b = DB.get(K.BIT,[]);
   const s = sesion();
-  b.unshift({ts:Date.now(), usuario: s? (s.nombre||s.poliza) : 'sistema', accion});
+  const entrada = {ts:Date.now(), usuario: s? (s.nombre||s.poliza) : 'sistema', accion};
+  b.unshift(entrada);
   DB.set(K.BIT, b.slice(0,500));
+  if(API_URL) api('bitacora',{entrada}).then(()=>setRed(true)).catch(()=>setRed(false));
 }
 
 /* ---------- Datos de demostración (primer uso) ---------- */
@@ -217,6 +220,117 @@ function sembrarDemo(){
   ]);
   DB.set(K.SIN, []);
   DB.set(K.BIT, []);
+}
+
+/* ============================================================
+   CONEXIÓN AL BACKEND (Google Apps Script + Google Sheets)
+   ------------------------------------------------------------
+   1) Pega aquí la URL de tu Web App (termina en /exec)
+   2) Pega el mismo TOKEN que pusiste en Code.gs
+   Si API_URL queda vacío (''), la app funciona solo local.
+   ============================================================ */
+const API_URL   = 'https://script.google.com/macros/s/AKfycbyZBNmfVBZLjSTl4BN43Sy_O-Igm01qAJIa_gplVHSB5zWr7-xlYd0A8N1dXj1jW3XY/exec'
+const API_TOKEN = 'CAMBIA-ESTE-TOKEN-POR-UNO-PROPIO';
+const POLL_MS   = 15000; // cada cuántos ms se consultan novedades
+
+async function api(accion, extra){
+  if(!API_URL) throw new Error('API no configurada');
+  const r = await fetch(API_URL, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'}, // evita preflight CORS
+    body: JSON.stringify(Object.assign({token:API_TOKEN, accion:accion}, extra||{}))
+  });
+  const j = await r.json();
+  if(!j.ok) throw new Error(j.error||'Error de API');
+  return j;
+}
+function setRed(ok){
+  const c = $('#chipRed');
+  if(!API_URL){ c.style.display='none'; return; }
+  c.style.display='';
+  c.textContent = ok? '● En línea' : '○ Sin conexión';
+  c.style.background = ok? 'rgba(34,197,94,.25)' : 'rgba(239,68,68,.3)';
+  window._enLinea = ok;
+}
+
+/* Cola de pendientes: si falla la red, el cambio queda local y se reintenta */
+function pendientes(){ return DB.get('sin_pend',[]); }
+function agregarPend(f){ const p=pendientes(); if(!p.includes(f)){ p.push(f); DB.set('sin_pend',p);} }
+function quitarPend(f){ DB.set('sin_pend', pendientes().filter(x=>x!==f)); }
+
+async function pushSiniestro(s){
+  if(!API_URL) return;
+  try{ await api('upsertSiniestro',{siniestro:s}); setRed(true); quitarPend(s.folio); }
+  catch(e){ setRed(false); agregarPend(s.folio); toast('Sin conexión: el cambio se guardó en este dispositivo y se reintentará'); }
+}
+async function reintentarPendientes(){
+  for(const f of pendientes()){
+    const s = siniestros().find(z=>z.folio===f);
+    if(!s){ quitarPend(f); continue; }
+    await api('upsertSiniestro',{siniestro:s});
+    quitarPend(f);
+  }
+}
+const MAPA_COL = {sin_usuarios:'usuarios', sin_ajustadores:'ajustadores', sin_polizas:'polizas', sin_pagos:'pagos'};
+function setCol(k, v){
+  DB.set(k, v);
+  if(!API_URL) return;
+  api('setColeccion',{col:MAPA_COL[k], datos:v}).then(()=>setRed(true))
+    .catch(()=>{ setRed(false); toast('Sin conexión: el catálogo se guardó solo en este dispositivo'); });
+}
+async function subirCatalogos(){
+  for(const k of Object.keys(MAPA_COL)) await api('setColeccion',{col:MAPA_COL[k], datos:DB.get(k,[])});
+}
+async function bajarCatalogos(){
+  const j = await api('getColecciones');
+  let n = 0;
+  Object.keys(MAPA_COL).forEach(k=>{
+    const d = j.datos[MAPA_COL[k]];
+    if(Array.isArray(d) && d.length){ DB.set(k, d); n++; }
+  });
+  return n;
+}
+function fusionarSiniestros(remotos){
+  const pend = pendientes();
+  const locales = siniestros();
+  const fusion = (remotos||[]).map(s => pend.includes(s.folio) ? (locales.find(l=>l.folio===s.folio)||s) : s);
+  pend.forEach(f=>{ if(!fusion.some(s=>s.folio===f)){ const l=locales.find(z=>z.folio===f); if(l) fusion.unshift(l); } });
+  return fusion;
+}
+async function pollSiniestros(){
+  if(!API_URL || !sesion()) return;
+  try{
+    await reintentarPendientes();
+    const j = await api('pullSiniestros');
+    setRed(true);
+    const fusion = fusionarSiniestros(j.datos);
+    const nuevo = JSON.stringify(fusion);
+    if(nuevo !== JSON.stringify(siniestros())){
+      localStorage.setItem(K.SIN, nuevo);
+      const el = document.activeElement;
+      const escribiendo = el && /INPUT|TEXTAREA|SELECT/.test(el.tagName);
+      if(!folioCaptura && !window._enDetalle && !escribiendo && !document.getElementById('repDesc')) render();
+    }
+  }catch(e){ setRed(false); }
+}
+let _tPoll = null;
+function iniciarPoll(){ clearInterval(_tPoll); if(API_URL) _tPoll = setInterval(pollSiniestros, POLL_MS); }
+async function sincronizarTodo(){
+  if(!API_URL) return;
+  try{
+    await bajarCatalogos();
+    await reintentarPendientes();
+    const j = await api('pullSiniestros');
+    DB.set(K.SIN, fusionarSiniestros(j.datos));
+    setRed(true);
+  }catch(e){ setRed(false); }
+}
+async function folioNuevo(){
+  if(API_URL){
+    try{ const j = await api('nuevoFolio'); setRed(true); return j.folio; }
+    catch(e){ setRed(false); }
+  }
+  return nuevoFolio() + 'L'; // folio local de respaldo (sin conexión)
 }
 
 /* ---------- Sesión ---------- */
@@ -251,10 +365,12 @@ const ESTADOS = {
 function badgeEstado(e){ const x=ESTADOS[e]||{txt:e,cls:'b-gris'}; return '<span class="badge '+x.cls+'">'+x.txt+'</span>'; }
 function siniestros(){ return DB.get(K.SIN,[]); }
 function guardarSiniestro(s){
+  s.actualizado = Date.now();
   const arr = siniestros();
   const i = arr.findIndex(x=>x.folio===s.folio);
   if(i>=0) arr[i]=s; else arr.unshift(s);
   DB.set(K.SIN, arr);
+  pushSiniestro(s); // sincronización con el servidor (no bloquea)
 }
 function nuevoFolio(){
   const seq = (DB.get(K.SEQ,0)||0)+1;
@@ -411,12 +527,15 @@ function formReporte(pol){
     }, e=>{ $('#gpsInfo').innerHTML=''; toast('No fue posible obtener la ubicación: '+e.message); }, {enableHighAccuracy:true, timeout:12000});
   };
   $('#btnCancelRep').onclick = ()=> render();
-  $('#btnEnviarRep').onclick = ()=>{
+  $('#btnEnviarRep').onclick = async ()=>{
     const desc = $('#repDesc').value.trim(), ref = $('#repRef').value.trim();
     if(!coords && !ref){ toast('Indica la ubicación (GPS o referencia)'); return; }
     if(!desc){ toast('Describe brevemente el evento'); return; }
+    const btn = $('#btnEnviarRep');
+    btn.disabled = true; btn.textContent = 'Enviando…';
+    const folio = await folioNuevo();
     const sNuevo = {
-      folio: nuevoFolio(), tipo: $('#repTipo').value,
+      folio: folio, tipo: $('#repTipo').value,
       poliza: pol.POLIZA, clienteNombre: pol.NOMBRE, clienteTel: pol.TELEFONO,
       vehiculo: {MARCA:pol.MARCA, MODELO:pol.MODELO, TIPO:pol.TIPO, PLACAS:pol.PLACAS, SERIE:pol.SERIE, COLOR:pol.COLOR},
       ubi: {lat: coords?coords.lat:null, lng: coords?coords.lng:null, texto: ref},
@@ -819,6 +938,7 @@ function crearPad(canvas, dataPrevio){
 function vistaDetalle(folio){
   const x = siniestros().find(z=>z.folio===folio);
   if(!x){ render(); return; }
+  window._enDetalle = true;
   const c = x.captura||{};
   const d = (et,va)=>`<div class="dato"><b>${et}</b><span>${esc(va||'—')}</span></div>`;
   const img = (et,src)=> src? `<div style="margin:8px 0"><label class="cmp">${et}</label><img class="img-cap" src="${src}" alt="${et}"></div>` : '';
@@ -891,11 +1011,36 @@ function vistaAdmin(){
 
   if(tabAdm==='DAT'){
     const nP = DB.get(K.POL,[]).length, nG = DB.get(K.PAG,[]).length;
+    const estServ = !API_URL
+      ? '<div class="aviso">⚠️ Servidor no configurado. Edita el archivo y captura API_URL y API_TOKEN (parte superior del código) para sincronizar entre dispositivos.</div>'
+      : `<div class="${window._enLinea?'ok-box':'aviso'}">Servidor: <b>${window._enLinea?'conectado':'sin conexión'}</b> · Sincronización automática cada ${POLL_MS/1000} s · Pendientes de enviar: <b>${pendientes().length}</b></div>
+         <div class="grid g3" style="margin-bottom:14px">
+           <button class="btn sec" id="btnProbar">🔌 Probar conexión</button>
+           <button class="btn" id="btnSubirCat">⬆ Subir catálogos al servidor</button>
+           <button class="btn" id="btnBajarCat">⬇ Descargar del servidor</button>
+         </div>`;
     z.innerHTML = `
+      ${estServ}
       <div class="ok-box">Pólizas cargadas: <b>${nP}</b> · Registros de pago: <b>${nG}</b></div>
       <label class="cmp">Cargar archivo Excel (hojas: "polizas" y "pagos", como en CONSULTA_POLIZAS.xlsx)</label>
       <input type="file" id="inpExcel" accept=".xlsx,.xls" style="margin:6px 0 12px">
-      <div class="aviso">Columnas reconocidas en pólizas: POLIZA, NOMBRE, TELEFONO, DOMICILIO, COLONIA, MARCA, MODELO, TIPO, PLACAS, SERIE, COLOR, VIGENCIA. En pagos: IDPOLIZA, RECIBO, VENCIMIENTO, MONTO, ESTATUS.</div>`;
+      <div class="aviso">Columnas reconocidas en pólizas: POLIZA, NOMBRE, TELEFONO, DOMICILIO, COLONIA, MARCA, MODELO, TIPO, PLACAS, SERIE, COLOR, VIGENCIA. En pagos: IDPOLIZA, RECIBO, VENCIMIENTO, MONTO, ESTATUS. Al cargar el Excel, los datos se envían también al servidor.</div>`;
+    if(API_URL){
+      $('#btnProbar').onclick = async ()=>{
+        try{ await api('ping'); setRed(true); toast('Conexión correcta con el servidor'); }
+        catch(e){ setRed(false); toast('Sin conexión: '+e.message); }
+        vistaAdmin();
+      };
+      $('#btnSubirCat').onclick = async ()=>{
+        if(!confirm('Esto reemplaza usuarios, ajustadores, pólizas y pagos en el servidor con los de este dispositivo. ¿Continuar?')) return;
+        try{ await subirCatalogos(); setRed(true); bit('Catálogos subidos al servidor'); toast('Catálogos subidos al servidor'); }
+        catch(e){ setRed(false); toast('Error: '+e.message); }
+      };
+      $('#btnBajarCat').onclick = async ()=>{
+        try{ const n = await bajarCatalogos(); setRed(true); toast(n? 'Catálogos descargados del servidor' : 'El servidor aún no tiene catálogos'); vistaAdmin(); }
+        catch(e){ setRed(false); toast('Error: '+e.message); }
+      };
+    }
     $('#inpExcel').onchange = e=>{
       const f = e.target.files[0]; if(!f) return;
       const r = new FileReader();
@@ -912,12 +1057,12 @@ function vistaAdmin(){
             return o;
           }
           const pols = XLSX.utils.sheet_to_json(wb.Sheets[hP], {defval:'', raw:false}).map(f=>mapear(f, al)).filter(p=>p.POLIZA);
-          DB.set(K.POL, pols);
+          setCol(K.POL, pols);
           let pags = [];
           if(hG){
             const alG = {IDPOLIZA:['IDPOLIZA','POLIZA','NUMPOLIZA'],RECIBO:['RECIBO','NORECIBO','PAGO'],VENCIMIENTO:['VENCIMIENTO','FECHAVENCIMIENTO','FECHA'],MONTO:['MONTO','IMPORTE','CANTIDAD'],ESTATUS:['ESTATUS','ESTADO','STATUS']};
             pags = XLSX.utils.sheet_to_json(wb.Sheets[hG], {defval:'', raw:false}).map(f=>mapear(f, alG)).filter(p=>p.IDPOLIZA);
-            DB.set(K.PAG, pags);
+            setCol(K.PAG, pags);
           }
           bit('Excel cargado: '+pols.length+' pólizas, '+pags.length+' pagos');
           toast('Cargadas '+pols.length+' pólizas y '+pags.length+' pagos');
@@ -949,14 +1094,14 @@ function vistaAdmin(){
       if(us[i].usuario===sesion().usuario){ toast('No puedes dar de baja tu propio usuario'); return; }
       if(!confirm('¿Dar de baja a '+us[i].nombre+'?')) return;
       bit('Baja de usuario '+us[i].usuario);
-      us.splice(i,1); DB.set(K.USU,us); vistaAdmin();
+      us.splice(i,1); setCol(K.USU,us); vistaAdmin();
     });
     $('#btnAltaUsu').onclick = ()=>{
       const u = $('#nuUsu').value.trim().toLowerCase(), n = $('#nuNom').value.trim(), p = $('#nuPas').value;
       if(!u||!n||p.length<6){ toast('Completa los datos (contraseña mínimo 6 caracteres)'); return; }
       if(us.some(x=>x.usuario===u)){ toast('Ese usuario ya existe'); return; }
       us.push({usuario:u, nombre:n, rol:$('#nuRol').value, hash:sha256(p)});
-      DB.set(K.USU,us); bit('Alta de usuario '+u); toast('Usuario creado'); vistaAdmin();
+      setCol(K.USU,us); bit('Alta de usuario '+u); toast('Usuario creado'); vistaAdmin();
     };
   }
 
@@ -982,27 +1127,32 @@ function vistaAdmin(){
       const i=+b.dataset.baja;
       if(!confirm('¿Quitar del catálogo a '+aj[i].nombre+'?')) return;
       bit('Baja de ajustador '+aj[i].nombre);
-      aj.splice(i,1); DB.set(K.AJU,aj); vistaAdmin();
+      aj.splice(i,1); setCol(K.AJU,aj); vistaAdmin();
     });
     $('#btnAltaAju').onclick = ()=>{
       const n=$('#naNom').value.trim(), t=$('#naTel').value.trim();
       if(!n){ toast('Captura el nombre'); return; }
       aj.push({id:'A'+Date.now(), nombre:n, telefono:t, usuario:$('#naUsu').value||null});
-      DB.set(K.AJU,aj); bit('Alta de ajustador '+n); toast('Ajustador agregado'); vistaAdmin();
+      setCol(K.AJU,aj); bit('Alta de ajustador '+n); toast('Ajustador agregado'); vistaAdmin();
     };
   }
 
   if(tabAdm==='BIT'){
-    const b = DB.get(K.BIT,[]);
-    z.innerHTML = `<div class="tb-scroll"><table class="tb">
+    const pintar = b => `<div class="tb-scroll"><table class="tb">
       <tr><th>Fecha y hora</th><th>Usuario</th><th>Acción</th></tr>
       ${b.length? b.map(e=>`<tr><td style="white-space:nowrap">${fmtFH(e.ts)}</td><td>${esc(e.usuario)}</td><td>${esc(e.accion)}</td></tr>`).join('') : '<tr><td colspan="3">Bitácora vacía.</td></tr>'}
     </table></div>`;
+    z.innerHTML = pintar(DB.get(K.BIT,[]));
+    if(API_URL){
+      api('getBitacora').then(j=>{ setRed(true); if(tabAdm==='BIT' && $('#zonaAdm')) $('#zonaAdm').innerHTML = '<div class="ok-box">Bitácora del servidor (todos los dispositivos)</div>'+pintar(j.datos); })
+        .catch(()=>setRed(false));
+    }
   }
 }
 
 /* ================= ARRANQUE ================= */
 function render(){
+  window._enDetalle = false;
   const s = sesion();
   $('#chipUsuario').style.display = s? '' : 'none';
   $('#btnSalir').style.display = s? '' : 'none';
@@ -1016,6 +1166,15 @@ function render(){
 $('#btnSalir').onclick = ()=>{ bit('Cierre de sesión'); cerrarSesion(); };
 sembrarDemo();
 render();
+if(API_URL){
+  setRed(false);
+  sincronizarTodo().then(()=>{
+    const el = document.activeElement;
+    const escribiendo = el && /INPUT|TEXTAREA|SELECT/.test(el.tagName);
+    if(!folioCaptura && !window._enDetalle && !escribiendo) render();
+    iniciarPoll();
+  });
+}
 /* Refresco ligero: si otra pestaña del mismo dispositivo cambia datos, actualizar */
 window.addEventListener('storage', e=>{ if(e.key===K.SIN && !folioCaptura) render(); });
 </script>
