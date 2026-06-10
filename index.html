@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Control de Siniestros y Grúas · Arts Nova MutuClub</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --azul:#16335f; --azul-osc:#0e2344; --azul-claro:#e8eef8;
+  --ambar:#d97706; --ambar-claro:#fef3c7;
+  --verde:#15803d; --verde-claro:#dcfce7;
+  --rojo:#b91c1c; --rojo-claro:#fee2e2;
+  --gris:#64748b; --gris-claro:#f1f5f9; --borde:#d6dee9;
+  --tinta:#1e293b; --radio:10px;
+  --sombra:0 1px 3px rgba(15,30,60,.12);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:var(--gris-claro); color:var(--tinta); font-size:15px; line-height:1.45}
+button{font-family:inherit}
+h1,h2,h3{margin:0 0 .4em}
+header.app{position:sticky;top:0;z-index:50;background:var(--azul);color:#fff;
+  padding:10px 14px;display:flex;align-items:center;gap:10px;box-shadow:var(--sombra)}
+header.app .logo{font-weight:800;font-size:16px;letter-spacing:.3px;flex:1;line-height:1.2}
+header.app .logo small{display:block;font-weight:400;font-size:11px;opacity:.8}
+.chip{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);
+  border-radius:999px;padding:4px 12px;font-size:12px;white-space:nowrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;
+  border:none;border-radius:8px;padding:10px 16px;font-size:14px;font-weight:600;
+  background:var(--azul);color:#fff;transition:filter .15s}
+.btn:hover{filter:brightness(1.12)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.sec{background:#fff;color:var(--azul);border:1px solid var(--borde)}
+.btn.amb{background:var(--ambar)}
+.btn.ver{background:var(--verde)}
+.btn.roj{background:var(--rojo)}
+.btn.mini{padding:6px 10px;font-size:12.5px;border-radius:7px}
+.btn.bloque{width:100%}
+main{max-width:1020px;margin:0 auto;padding:14px 12px 90px}
+.card{background:#fff;border:1px solid var(--borde);border-radius:var(--radio);
+  box-shadow:var(--sombra);padding:16px;margin-bottom:14px}
+.card h2{font-size:16px;color:var(--azul);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.card h3{font-size:13.5px;color:var(--azul);text-transform:uppercase;letter-spacing:.5px;
+  border-bottom:2px solid var(--azul-claro);padding-bottom:5px;margin-top:18px}
+.grid{display:grid;gap:10px}
+.g2{grid-template-columns:1fr 1fr}
+.g3{grid-template-columns:1fr 1fr 1fr}
+@media(max-width:640px){.g2,.g3{grid-template-columns:1fr}}
+label.cmp{display:block;font-size:12px;font-weight:700;color:var(--gris);
+  text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+input[type=text],input[type=tel],input[type=password],input[type=number],select,textarea{
+  width:100%;padding:10px 12px;border:1px solid var(--borde);border-radius:8px;
+  font-size:15px;font-family:inherit;background:#fff;color:var(--tinta)}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--azul);outline-offset:1px;border-color:var(--azul)}
+textarea{resize:vertical;min-height:74px}
+.dato{padding:6px 0;border-bottom:1px dashed var(--borde);display:flex;gap:8px;font-size:14px}
+.dato b{min-width:108px;color:var(--gris);font-size:12px;text-transform:uppercase;
+  letter-spacing:.3px;padding-top:1px}
+.badge{display:inline-block;border-radius:999px;padding:3px 10px;font-size:11.5px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.4px}
+.b-azul{background:var(--azul-claro);color:var(--azul)}
+.b-ambar{background:var(--ambar-claro);color:#92400e}
+.b-verde{background:var(--verde-claro);color:var(--verde)}
+.b-rojo{background:var(--rojo-claro);color:var(--rojo)}
+.b-gris{background:#e2e8f0;color:#475569}
+.tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.tabs button{flex:1;min-width:90px;padding:9px 6px;border:1px solid var(--borde);background:#fff;
+  border-radius:8px;font-size:13px;font-weight:700;color:var(--gris);cursor:pointer}
+.tabs button.on{background:var(--azul);color:#fff;border-color:var(--azul)}
+.lista-item{border:1px solid var(--borde);border-radius:var(--radio);padding:12px;
+  margin-bottom:10px;background:#fff;box-shadow:var(--sombra)}
+.lista-item .fila1{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.folio{font-weight:800;color:var(--azul);font-size:15px}
+.meta{font-size:12.5px;color:var(--gris);margin-top:4px}
+.tiempos{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:var(--gris)}
+.tiempos b{color:var(--tinta)}
+.firma-wrap{border:2px dashed var(--borde);border-radius:8px;background:#fff;position:relative}
+.firma-wrap canvas{display:block;width:100%;height:160px;touch-action:none;border-radius:8px}
+.croquis-wrap canvas{height:300px}
+.firma-acciones{display:flex;gap:8px;margin-top:6px;align-items:center;flex-wrap:wrap}
+.aviso{background:var(--ambar-claro);border:1px solid #fbbf24;border-radius:8px;
+  padding:10px 12px;font-size:13px;color:#92400e;margin-bottom:12px}
+.ok-box{background:var(--verde-claro);border:1px solid #86efac;border-radius:8px;
+  padding:10px 12px;font-size:13px;color:var(--verde);margin-bottom:12px}
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--tinta);
+  color:#fff;padding:11px 20px;border-radius:999px;font-size:13.5px;opacity:0;
+  pointer-events:none;transition:opacity .25s;z-index:99;max-width:92vw;text-align:center}
+#toast.ver{opacity:1}
+.login-caja{max-width:420px;margin:7vh auto 0}
+.login-logo{text-align:center;margin-bottom:18px}
+.login-logo .sello{width:64px;height:64px;border-radius:16px;background:var(--azul);color:#fff;
+  display:inline-flex;align-items:center;justify-content:center;font-size:30px;margin-bottom:8px}
+table.tb{width:100%;border-collapse:collapse;font-size:13.5px}
+table.tb th{background:var(--azul-claro);color:var(--azul);text-align:left;padding:8px;
+  font-size:11.5px;text-transform:uppercase;letter-spacing:.4px}
+table.tb td{padding:8px;border-bottom:1px solid var(--borde)}
+.tb-scroll{overflow-x:auto}
+.sello-rol{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;
+  justify-content:center;font-size:19px;background:var(--azul-claro);flex-shrink:0}
+.img-cap{max-width:100%;border:1px solid var(--borde);border-radius:8px;background:#fff}
+.acciones-flot{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.radio-grupo{display:flex;gap:10px;flex-wrap:wrap}
+.radio-grupo label{flex:1;min-width:130px;display:flex;align-items:center;gap:8px;
+  border:2px solid var(--borde);border-radius:8px;padding:11px;cursor:pointer;font-weight:700;font-size:14px}
+.radio-grupo label.sel-resp{border-color:var(--rojo);background:var(--rojo-claro);color:var(--rojo)}
+.radio-grupo label.sel-afec{border-color:var(--verde);background:var(--verde-claro);color:var(--verde)}
+.pill-gps{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--verde);font-weight:700}
+@media print{
+  header.app,.no-print,#toast{display:none!important}
+  body{background:#fff}
+  main{padding:0;max-width:100%}
+  .card{box-shadow:none;border:1px solid #999;page-break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<header class="app">
+  <div class="logo">Siniestros y Grúas<small>Arts Nova MutuClub</small></div>
+  <span class="chip" id="chipUsuario" style="display:none"></span>
+  <button class="btn mini sec no-print" id="btnSalir" style="display:none">Salir</button>
+</header>
+<main id="app"></main>
+<div id="toast"></div>
+<script>
+/* ============================================================
+   CONTROL DE SINIESTROS Y GRÚAS · Arts Nova MutuClub
+   v1.0 — Datos locales (localStorage). Capa DB separada para
+   conectar después un backend (Apps Script / GitHub).
+   ============================================================ */
+
+/* ---------- Utilidades ---------- */
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = v => String(v==null?'':v).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('ver'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('ver'),2600); }
+function fmtFH(ts){ return ts ? new Date(ts).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—'; }
+function fmtH(ts){ return ts ? new Date(ts).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '—'; }
+function norm(s){ return String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim(); }
+function soloDig(s){ return String(s==null?'':s).replace(/\D/g,''); }
+
+/* SHA-256 (implementación pura JS, funciona también sin contexto seguro) */
+function sha256(texto){
+  texto = unescape(encodeURIComponent(texto));
+  var h0=0x6a09e667,h1=0xbb67ae85,h2=0x3c6ef372,h3=0xa54ff53a,h4=0x510e527f,h5=0x9b05688c,h6=0x1f83d9ab,h7=0x5be0cd19;
+  var k=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+  var l=texto.length, msg=[];
+  for(var i=0;i<l;i++) msg.push(texto.charCodeAt(i));
+  msg.push(0x80);
+  while(msg.length%64!==56) msg.push(0);
+  var bits=l*8;
+  for(var i=7;i>=0;i--) msg.push((i>=4? Math.floor(bits/Math.pow(2,(i)*8)) : (bits>>>(i*8)))&0xff);
+  function rr(x,n){return (x>>>n)|(x<<(32-n));}
+  for(var b=0;b<msg.length;b+=64){
+    var w=new Array(64);
+    for(var t=0;t<16;t++) w[t]=(msg[b+t*4]<<24)|(msg[b+t*4+1]<<16)|(msg[b+t*4+2]<<8)|(msg[b+t*4+3]);
+    for(var t=16;t<64;t++){
+      var s0=rr(w[t-15],7)^rr(w[t-15],18)^(w[t-15]>>>3);
+      var s1=rr(w[t-2],17)^rr(w[t-2],19)^(w[t-2]>>>10);
+      w[t]=(w[t-16]+s0+w[t-7]+s1)|0;
+    }
+    var a=h0,bb=h1,c=h2,d=h3,e=h4,f=h5,g=h6,h=h7;
+    for(var t=0;t<64;t++){
+      var S1=rr(e,6)^rr(e,11)^rr(e,25), ch=(e&f)^((~e)&g);
+      var t1=(h+S1+ch+k[t]+w[t])|0;
+      var S0=rr(a,2)^rr(a,13)^rr(a,22), maj=(a&bb)^(a&c)^(bb&c);
+      var t2=(S0+maj)|0;
+      h=g;g=f;f=e;e=(d+t1)|0;d=c;c=bb;bb=a;a=(t1+t2)|0;
+    }
+    h0=(h0+a)|0;h1=(h1+bb)|0;h2=(h2+c)|0;h3=(h3+d)|0;h4=(h4+e)|0;h5=(h5+f)|0;h6=(h6+g)|0;h7=(h7+h)|0;
+  }
+  return [h0,h1,h2,h3,h4,h5,h6,h7].map(x=>('00000000'+((x>>>0).toString(16))).slice(-8)).join('');
+}
+
+/* ---------- Capa de datos (DB) ----------
+   Hoy: localStorage. Mañana: cambiar estas 2 funciones
+   por llamadas a un backend (Apps Script) y todo lo demás
+   sigue funcionando igual. */
+const K = {POL:'sin_polizas', PAG:'sin_pagos', USU:'sin_usuarios', AJU:'sin_ajustadores',
+           SIN:'sin_siniestros', BIT:'sin_bitacora', SES:'sin_sesion', SEQ:'sin_folio_seq'};
+const DB = {
+  get(k,def){ try{ const v=localStorage.getItem(k); return v? JSON.parse(v) : def; }catch(e){ return def; } },
+  set(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
+};
+function bit(accion){
+  const b = DB.get(K.BIT,[]);
+  const s = sesion();
+  b.unshift({ts:Date.now(), usuario: s? (s.nombre||s.poliza) : 'sistema', accion});
+  DB.set(K.BIT, b.slice(0,500));
+}
+
+/* ---------- Datos de demostración (primer uso) ---------- */
+function sembrarDemo(){
+  if(DB.get(K.USU)) return;
+  DB.set(K.USU, [
+    {usuario:'admin', nombre:'Administrador', rol:'admin', hash:'240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9'},
+    {usuario:'resp',  nombre:'Responsable de Siniestros', rol:'responsable', hash:'3140fa7aa202f3fce58340639cd44ae969c82001c1cd7d70d13c9ae02935972e'},
+    {usuario:'aju1',  nombre:'Juan Pérez Ramírez', rol:'ajustador', hash:'907788152d379c0a738415132aad8cd61fa18d48d00b02ffbdd80687dd5bc4a7'},
+    {usuario:'aju2',  nombre:'Luis Gómez Torres', rol:'ajustador', hash:'907788152d379c0a738415132aad8cd61fa18d48d00b02ffbdd80687dd5bc4a7'}
+  ]);
+  DB.set(K.AJU, [
+    {id:'A1', nombre:'Juan Pérez Ramírez', telefono:'3322001100', usuario:'aju1'},
+    {id:'A2', nombre:'Luis Gómez Torres', telefono:'3322002200', usuario:'aju2'}
+  ]);
+  DB.set(K.POL, [
+    {POLIZA:'AN-10234', NOMBRE:'MARIA LOPEZ HERNANDEZ', TELEFONO:'3312345678', DOMICILIO:'AV. VALLARTA 1234', COLONIA:'AMERICANA', MARCA:'NISSAN', MODELO:'2021', TIPO:'VERSA ADVANCE', PLACAS:'JNX123A', SERIE:'3N1CN7AD5ML123456', COLOR:'BLANCO', VIGENCIA:'31/12/2026'},
+    {POLIZA:'AN-10567', NOMBRE:'CARLOS RUIZ MENDOZA', TELEFONO:'3398765432', DOMICILIO:'CALLE COLON 567', COLONIA:'CENTRO', MARCA:'CHEVROLET', MODELO:'2019', TIPO:'AVEO LS', PLACAS:'JKL456B', SERIE:'3G1TA5AF9KL654321', COLOR:'ROJO', VIGENCIA:'31/12/2026'}
+  ]);
+  DB.set(K.PAG, [
+    {IDPOLIZA:'AN-10234', RECIBO:'1/4', VENCIMIENTO:'15/01/2026', MONTO:'1,850.00', ESTATUS:'PAGADO'},
+    {IDPOLIZA:'AN-10234', RECIBO:'2/4', VENCIMIENTO:'15/04/2026', MONTO:'1,850.00', ESTATUS:'PAGADO'},
+    {IDPOLIZA:'AN-10234', RECIBO:'3/4', VENCIMIENTO:'15/07/2026', MONTO:'1,850.00', ESTATUS:'PENDIENTE'},
+    {IDPOLIZA:'AN-10234', RECIBO:'4/4', VENCIMIENTO:'15/10/2026', MONTO:'1,850.00', ESTATUS:'PENDIENTE'},
+    {IDPOLIZA:'AN-10567', RECIBO:'1/2', VENCIMIENTO:'01/02/2026', MONTO:'3,400.00', ESTATUS:'PAGADO'},
+    {IDPOLIZA:'AN-10567', RECIBO:'2/2', VENCIMIENTO:'01/06/2026', MONTO:'3,400.00', ESTATUS:'VENCIDO'}
+  ]);
+  DB.set(K.SIN, []);
+  DB.set(K.BIT, []);
+}
+
+/* ---------- Sesión ---------- */
+function sesion(){ return DB.get(K.SES, null); }
+function cerrarSesion(){ detenerCompartir(); localStorage.removeItem(K.SES); render(); }
+
+/* ---------- Pólizas / pagos ---------- */
+function buscarPoliza(num){
+  const n = norm(num).replace(/\s/g,'');
+  return DB.get(K.POL,[]).find(p => norm(p.POLIZA).replace(/\s/g,'') === n) || null;
+}
+function pagosDe(poliza){
+  const n = norm(poliza).replace(/\s/g,'');
+  return DB.get(K.PAG,[]).filter(p => norm(p.IDPOLIZA).replace(/\s/g,'') === n);
+}
+function badgePago(est){
+  const e = norm(est);
+  if(e.includes('PAGADO')) return '<span class="badge b-verde">PAGADO</span>';
+  if(e.includes('VENCIDO')) return '<span class="badge b-rojo">VENCIDO</span>';
+  return '<span class="badge b-ambar">'+esc(est||'PENDIENTE')+'</span>';
+}
+
+/* ---------- Siniestros ---------- */
+const ESTADOS = {
+  REPORTADO:{txt:'Reportado', cls:'b-ambar'},
+  ASIGNADO:{txt:'Asignado', cls:'b-azul'},
+  ACEPTADO:{txt:'Ajustador en ruta', cls:'b-azul'},
+  ARRIBO:{txt:'Ajustador en sitio', cls:'b-verde'},
+  CONCLUIDO:{txt:'Concluido', cls:'b-gris'},
+  CANCELADO:{txt:'Cancelado', cls:'b-rojo'}
+};
+function badgeEstado(e){ const x=ESTADOS[e]||{txt:e,cls:'b-gris'}; return '<span class="badge '+x.cls+'">'+x.txt+'</span>'; }
+function siniestros(){ return DB.get(K.SIN,[]); }
+function guardarSiniestro(s){
+  const arr = siniestros();
+  const i = arr.findIndex(x=>x.folio===s.folio);
+  if(i>=0) arr[i]=s; else arr.unshift(s);
+  DB.set(K.SIN, arr);
+}
+function nuevoFolio(){
+  const seq = (DB.get(K.SEQ,0)||0)+1;
+  DB.set(K.SEQ, seq);
+  return 'SIN-'+new Date().getFullYear()+'-'+String(seq).padStart(4,'0');
+}
+function linkMapa(lat,lng){ return 'https://www.google.com/maps?q='+lat+','+lng; }
+function linkRuta(lat,lng){ return 'https://www.google.com/maps/dir/?api=1&destination='+lat+','+lng+'&travelmode=driving'; }
+
+/* ---------- Login ---------- */
+let tabLogin = 'cliente';
+function vistaLogin(){
+  $('#app').innerHTML = `
+  <div class="login-caja">
+    <div class="login-logo">
+      <div class="sello">🚗</div>
+      <h1 style="font-size:20px;color:var(--azul)">Siniestros y Grúas</h1>
+      <div style="color:var(--gris);font-size:13px">Arts Nova MutuClub</div>
+    </div>
+    <div class="card">
+      <div class="tabs">
+        <button id="tCli" class="${tabLogin==='cliente'?'on':''}">Soy cliente</button>
+        <button id="tSta" class="${tabLogin==='staff'?'on':''}">Personal autorizado</button>
+      </div>
+      <div id="zonaLogin"></div>
+    </div>
+  </div>`;
+  $('#tCli').onclick = ()=>{ tabLogin='cliente'; vistaLogin(); };
+  $('#tSta').onclick = ()=>{ tabLogin='staff'; vistaLogin(); };
+  if(tabLogin==='cliente'){
+    $('#zonaLogin').innerHTML = `
+      <div class="grid">
+        <div><label class="cmp">Número de póliza</label><input type="text" id="liPoliza" placeholder="Ej. AN-10234" autocomplete="off"></div>
+        <div><label class="cmp">Teléfono registrado</label><input type="tel" id="liTel" placeholder="10 dígitos" maxlength="14"></div>
+        <button class="btn bloque" id="btnEntrarCli">Entrar</button>
+      </div>`;
+    $('#btnEntrarCli').onclick = ()=>{
+      const pol = buscarPoliza($('#liPoliza').value);
+      if(!pol){ toast('Póliza no encontrada'); return; }
+      if(soloDig(pol.TELEFONO).slice(-10) !== soloDig($('#liTel').value).slice(-10) || soloDig($('#liTel').value).length<10){
+        toast('El teléfono no coincide con la póliza'); return;
+      }
+      DB.set(K.SES, {tipo:'cliente', poliza:pol.POLIZA, nombre:pol.NOMBRE, rol:'cliente'});
+      bit('Inicio de sesión cliente · Póliza '+pol.POLIZA);
+      render();
+    };
+  } else {
+    $('#zonaLogin').innerHTML = `
+      <div class="grid">
+        <div><label class="cmp">Usuario</label><input type="text" id="liUsu" autocomplete="off"></div>
+        <div><label class="cmp">Contraseña</label><input type="password" id="liPas"></div>
+        <button class="btn bloque" id="btnEntrarSta">Entrar</button>
+      </div>`;
+    $('#liPas').addEventListener('keydown', e=>{ if(e.key==='Enter') $('#btnEntrarSta').click(); });
+    $('#btnEntrarSta').onclick = ()=>{
+      const u = DB.get(K.USU,[]).find(x => x.usuario === $('#liUsu').value.trim().toLowerCase());
+      if(!u || u.hash !== sha256($('#liPas').value)){ toast('Usuario o contraseña incorrectos'); return; }
+      DB.set(K.SES, {tipo:'staff', usuario:u.usuario, nombre:u.nombre, rol:u.rol});
+      bit('Inicio de sesión · '+u.nombre+' ('+u.rol+')');
+      render();
+    };
+  }
+}
+</script>
+<script>
+/* ================= VISTA CLIENTE ================= */
+function vistaCliente(){
+  const s = sesion();
+  const pol = buscarPoliza(s.poliza);
+  if(!pol){ cerrarSesion(); return; }
+  const pagos = pagosDe(pol.POLIZA);
+  const mios = siniestros().filter(x => norm(x.poliza)===norm(pol.POLIZA));
+
+  $('#app').innerHTML = `
+  <div class="card">
+    <h2>📋 Mi póliza <span class="badge b-azul">${esc(pol.POLIZA)}</span></h2>
+    <div class="grid g2">
+      <div>
+        <div class="dato"><b>Afiliado</b><span>${esc(pol.NOMBRE)}</span></div>
+        <div class="dato"><b>Teléfono</b><span>${esc(pol.TELEFONO)}</span></div>
+        <div class="dato"><b>Domicilio</b><span>${esc(pol.DOMICILIO)}</span></div>
+        <div class="dato"><b>Colonia</b><span>${esc(pol.COLONIA)}</span></div>
+        <div class="dato"><b>Vigencia</b><span>${esc(pol.VIGENCIA||'—')}</span></div>
+      </div>
+      <div>
+        <div class="dato"><b>Vehículo</b><span>${esc(pol.MARCA)} ${esc(pol.TIPO)}</span></div>
+        <div class="dato"><b>Modelo</b><span>${esc(pol.MODELO)}</span></div>
+        <div class="dato"><b>Placas</b><span>${esc(pol.PLACAS)}</span></div>
+        <div class="dato"><b>Serie</b><span>${esc(pol.SERIE)}</span></div>
+        <div class="dato"><b>Color</b><span>${esc(pol.COLOR)}</span></div>
+      </div>
+    </div>
+    <h3>Estatus de pagos</h3>
+    <div class="tb-scroll"><table class="tb">
+      <tr><th>Recibo</th><th>Vencimiento</th><th>Monto</th><th>Estatus</th></tr>
+      ${pagos.length? pagos.map(p=>`<tr><td>${esc(p.RECIBO)}</td><td>${esc(p.VENCIMIENTO)}</td><td>$${esc(p.MONTO)}</td><td>${badgePago(p.ESTATUS)}</td></tr>`).join('') : '<tr><td colspan="4">Sin registros de pago.</td></tr>'}
+    </table></div>
+  </div>
+
+  <div class="card no-print">
+    <h2>🚨 Reportar siniestro</h2>
+    <div id="zonaReporte"><button class="btn amb bloque" id="btnAbrirRep">Reportar Choque o Rotura de Cristales</button></div>
+  </div>
+
+  <div class="card">
+    <h2>📂 Mis siniestros</h2>
+    ${mios.length? mios.map(x=>tarjetaSiniestroCliente(x)).join('') : '<div class="meta">Aún no tienes siniestros reportados.</div>'}
+  </div>`;
+
+  $('#btnAbrirRep').onclick = ()=> formReporte(pol);
+  mios.forEach(x=>{
+    const b = document.getElementById('verAju_'+x.folio);
+    if(b) b.onclick = ()=> window.open(linkMapa(x.ubiAjustador.lat, x.ubiAjustador.lng),'_blank');
+  });
+}
+function tarjetaSiniestroCliente(x){
+  const aju = x.ajustadorNombre ? `<div class="meta">Ajustador asignado: <b>${esc(x.ajustadorNombre)}</b>${x.ajustadorTel? ' · Tel '+esc(x.ajustadorTel):''}</div>` : '';
+  const ubiA = x.ubiAjustador ? `<div class="meta">📍 Ubicación del ajustador actualizada ${fmtH(x.ubiAjustador.ts)} <button class="btn mini sec" id="verAju_${x.folio}">Ver en mapa</button></div>` : '';
+  return `<div class="lista-item">
+    <div class="fila1"><span class="folio">${esc(x.folio)}</span>${badgeEstado(x.estado)}</div>
+    <div class="meta">${esc(x.tipo)} · Reportado ${fmtFH(x.fReporte)}</div>
+    <div class="meta">📍 ${x.ubi? esc(x.ubi.texto||'Ubicación GPS') : '—'} ${x.ubi&&x.ubi.lat? `· <a href="${linkMapa(x.ubi.lat,x.ubi.lng)}" target="_blank">ver mapa</a>`:''}</div>
+    ${aju}${ubiA}
+    <div class="tiempos">
+      <span>Asignado: <b>${fmtH(x.fAsignacion)}</b></span>
+      <span>Aceptado: <b>${fmtH(x.fAceptacion)}</b></span>
+      <span>Arribo: <b>${fmtH(x.fArribo)}</b></span>
+    </div>
+  </div>`;
+}
+function formReporte(pol){
+  $('#zonaReporte').innerHTML = `
+    <div class="grid">
+      <div><label class="cmp">Tipo de siniestro</label>
+        <select id="repTipo"><option>CHOQUE</option><option>ROTURA DE CRISTALES</option></select></div>
+      <div><label class="cmp">Ubicación del siniestro</label>
+        <button class="btn sec bloque" id="btnGPS" type="button">📍 Usar mi ubicación GPS</button>
+        <div id="gpsInfo" style="margin-top:6px"></div>
+        <input type="text" id="repRef" placeholder="Calle, cruce o referencia del lugar" style="margin-top:8px"></div>
+      <div><label class="cmp">Breve descripción del evento</label>
+        <textarea id="repDesc" placeholder="¿Qué ocurrió?"></textarea></div>
+      <div class="grid g2">
+        <button class="btn amb" id="btnEnviarRep">Enviar reporte</button>
+        <button class="btn sec" id="btnCancelRep" type="button">Cancelar</button>
+      </div>
+    </div>`;
+  let coords = null;
+  $('#btnGPS').onclick = ()=>{
+    if(!navigator.geolocation){ toast('Este dispositivo no soporta GPS'); return; }
+    $('#gpsInfo').innerHTML = '<span class="meta">Obteniendo ubicación…</span>';
+    navigator.geolocation.getCurrentPosition(p=>{
+      coords = {lat:+p.coords.latitude.toFixed(6), lng:+p.coords.longitude.toFixed(6)};
+      $('#gpsInfo').innerHTML = `<span class="pill-gps">✓ Ubicación capturada</span> <a href="${linkMapa(coords.lat,coords.lng)}" target="_blank" class="meta">verificar en mapa</a>`;
+    }, e=>{ $('#gpsInfo').innerHTML=''; toast('No fue posible obtener la ubicación: '+e.message); }, {enableHighAccuracy:true, timeout:12000});
+  };
+  $('#btnCancelRep').onclick = ()=> render();
+  $('#btnEnviarRep').onclick = ()=>{
+    const desc = $('#repDesc').value.trim(), ref = $('#repRef').value.trim();
+    if(!coords && !ref){ toast('Indica la ubicación (GPS o referencia)'); return; }
+    if(!desc){ toast('Describe brevemente el evento'); return; }
+    const sNuevo = {
+      folio: nuevoFolio(), tipo: $('#repTipo').value,
+      poliza: pol.POLIZA, clienteNombre: pol.NOMBRE, clienteTel: pol.TELEFONO,
+      vehiculo: {MARCA:pol.MARCA, MODELO:pol.MODELO, TIPO:pol.TIPO, PLACAS:pol.PLACAS, SERIE:pol.SERIE, COLOR:pol.COLOR},
+      ubi: {lat: coords?coords.lat:null, lng: coords?coords.lng:null, texto: ref},
+      descripcion: desc, estado:'REPORTADO',
+      fReporte: Date.now(), fAsignacion:null, fAceptacion:null, fArribo:null, fCierre:null,
+      ajustadorUsuario:null, ajustadorNombre:null, ajustadorTel:null, ubiAjustador:null,
+      captura:{}
+    };
+    guardarSiniestro(sNuevo);
+    bit('Siniestro reportado '+sNuevo.folio+' ('+sNuevo.tipo+') · Póliza '+pol.POLIZA);
+    toast('Reporte enviado. Folio: '+sNuevo.folio);
+    render();
+  };
+}
+
+/* ================= VISTA RESPONSABLE ================= */
+let tabResp = 'PEND';
+function vistaResponsable(){
+  const todos = siniestros();
+  const filtro = {
+    PEND: x=>x.estado==='REPORTADO',
+    PROC: x=>['ASIGNADO','ACEPTADO','ARRIBO'].includes(x.estado),
+    CONC: x=>['CONCLUIDO','CANCELADO'].includes(x.estado),
+    TODOS: x=>true
+  }[tabResp];
+  const lista = todos.filter(filtro);
+  const nPend = todos.filter(x=>x.estado==='REPORTADO').length;
+
+  $('#app').innerHTML = `
+  ${nPend? `<div class="aviso">🔔 Hay <b>${nPend}</b> siniestro(s) pendiente(s) de autorizar y asignar.</div>`:''}
+  <div class="card">
+    <h2>🗂️ Siniestros</h2>
+    <div class="tabs">
+      <button data-t="PEND" class="${tabResp==='PEND'?'on':''}">Pendientes (${nPend})</button>
+      <button data-t="PROC" class="${tabResp==='PROC'?'on':''}">En proceso</button>
+      <button data-t="CONC" class="${tabResp==='CONC'?'on':''}">Concluidos</button>
+      <button data-t="TODOS" class="${tabResp==='TODOS'?'on':''}">Todos</button>
+    </div>
+    <div id="zonaLista">${lista.length? lista.map(x=>tarjetaSiniestroStaff(x,'resp')).join('') : '<div class="meta">Sin siniestros en esta sección.</div>'}</div>
+  </div>`;
+  $$('.tabs button').forEach(b=> b.onclick = ()=>{ tabResp=b.dataset.t; vistaResponsable(); });
+  conectarAccionesStaff(lista, 'resp');
+}
+function tarjetaSiniestroStaff(x, modo){
+  const aju = DB.get(K.AJU,[]);
+  const asignar = (modo==='resp' && x.estado==='REPORTADO') ? `
+    <div class="grid g2" style="margin-top:10px;align-items:end">
+      <div><label class="cmp">Asignar ajustador</label>
+        <select id="selAju_${x.folio}">${aju.map(a=>`<option value="${esc(a.id)}">${esc(a.nombre)}</option>`).join('')}</select></div>
+      <button class="btn ver" id="btnAsig_${x.folio}">✓ Autorizar y asignar</button>
+    </div>` : '';
+  const ubiA = x.ubiAjustador ? `<div class="meta">📍 Ajustador: <a href="${linkMapa(x.ubiAjustador.lat,x.ubiAjustador.lng)}" target="_blank">ver ubicación</a> (${fmtH(x.ubiAjustador.ts)})</div>` : '';
+  return `<div class="lista-item">
+    <div class="fila1"><span class="folio">${esc(x.folio)}</span>${badgeEstado(x.estado)}</div>
+    <div class="meta"><b>${esc(x.tipo)}</b> · Póliza ${esc(x.poliza)} · ${esc(x.clienteNombre)} · Tel ${esc(x.clienteTel)}</div>
+    <div class="meta">🚗 ${esc(x.vehiculo.MARCA)} ${esc(x.vehiculo.TIPO)} ${esc(x.vehiculo.MODELO)} · Placas ${esc(x.vehiculo.PLACAS)}</div>
+    <div class="meta">📍 ${esc(x.ubi.texto||'Ubicación GPS')} ${x.ubi.lat? `· <a href="${linkMapa(x.ubi.lat,x.ubi.lng)}" target="_blank">ver mapa</a>`:''}</div>
+    <div class="meta">📝 ${esc(x.descripcion)}</div>
+    ${x.ajustadorNombre? `<div class="meta">👷 Ajustador: <b>${esc(x.ajustadorNombre)}</b></div>`:''}
+    ${ubiA}
+    <div class="tiempos">
+      <span>Reporte: <b>${fmtFH(x.fReporte)}</b></span>
+      <span>Asignación: <b>${fmtH(x.fAsignacion)}</b></span>
+      <span>Aceptación: <b>${fmtH(x.fAceptacion)}</b></span>
+      <span>Arribo: <b>${fmtH(x.fArribo)}</b></span>
+      <span>Cierre: <b>${fmtH(x.fCierre)}</b></span>
+    </div>
+    ${asignar}
+    <div class="acciones-flot">
+      <button class="btn mini sec" id="btnDet_${x.folio}">Ver expediente</button>
+    </div>
+  </div>`;
+}
+function conectarAccionesStaff(lista, modo){
+  lista.forEach(x=>{
+    const bA = document.getElementById('btnAsig_'+x.folio);
+    if(bA) bA.onclick = ()=>{
+      const aju = DB.get(K.AJU,[]).find(a=>a.id===document.getElementById('selAju_'+x.folio).value);
+      if(!aju){ toast('Selecciona un ajustador'); return; }
+      x.estado='ASIGNADO'; x.fAsignacion=Date.now();
+      x.ajustadorUsuario=aju.usuario; x.ajustadorNombre=aju.nombre; x.ajustadorTel=aju.telefono;
+      guardarSiniestro(x);
+      bit('Siniestro '+x.folio+' autorizado y asignado a '+aju.nombre);
+      toast('Asignado a '+aju.nombre);
+      render();
+    };
+    const bD = document.getElementById('btnDet_'+x.folio);
+    if(bD) bD.onclick = ()=> vistaDetalle(x.folio);
+  });
+}
+</script>
+<script>
+/* ================= VISTA AJUSTADOR ================= */
+let folioCaptura = null;
+function vistaAjustador(){
+  const s = sesion();
+  const mios = siniestros().filter(x => x.ajustadorUsuario===s.usuario && ['ASIGNADO','ACEPTADO','ARRIBO'].includes(x.estado));
+  const hist = siniestros().filter(x => x.ajustadorUsuario===s.usuario && x.estado==='CONCLUIDO').slice(0,10);
+
+  if(folioCaptura){
+    const x = siniestros().find(z=>z.folio===folioCaptura);
+    if(x){ vistaCaptura(x); return; }
+    folioCaptura = null;
+  }
+
+  $('#app').innerHTML = `
+  <div class="card">
+    <h2>👷 Mis servicios asignados</h2>
+    ${mios.length? mios.map(x=>tarjetaAjustador(x)).join('') : '<div class="meta">No tienes servicios pendientes.</div>'}
+  </div>
+  ${hist.length? `<div class="card"><h2>Historial reciente</h2>${hist.map(x=>`
+    <div class="lista-item"><div class="fila1"><span class="folio">${esc(x.folio)}</span>${badgeEstado(x.estado)}</div>
+    <div class="meta">${esc(x.tipo)} · ${esc(x.clienteNombre)} · Cierre ${fmtFH(x.fCierre)}</div>
+    <div class="acciones-flot"><button class="btn mini sec" id="btnDet_${x.folio}">Ver expediente</button></div></div>`).join('')}</div>`:''}`;
+
+  mios.forEach(x=>{
+    const bAc = document.getElementById('btnAcep_'+x.folio);
+    if(bAc) bAc.onclick = ()=>{
+      x.estado='ACEPTADO'; x.fAceptacion=Date.now();
+      guardarSiniestro(x);
+      bit('Ajustador aceptó asignación · '+x.folio);
+      toast('Asignación aceptada a las '+fmtH(x.fAceptacion));
+      render();
+    };
+    const bR = document.getElementById('btnRuta_'+x.folio);
+    if(bR) bR.onclick = ()=>{
+      if(x.ubi.lat) window.open(linkRuta(x.ubi.lat,x.ubi.lng),'_blank');
+      else window.open('https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(x.ubi.texto),'_blank');
+    };
+    const bC = document.getElementById('btnComp_'+x.folio);
+    if(bC) bC.onclick = ()=> alternarCompartir(x.folio, bC);
+    const bArr = document.getElementById('btnArr_'+x.folio);
+    if(bArr) bArr.onclick = ()=>{
+      if(!x.fArribo){ x.fArribo=Date.now(); }
+      x.estado='ARRIBO';
+      guardarSiniestro(x);
+      bit('Arribo al siniestro registrado · '+x.folio);
+      detenerCompartir();
+      folioCaptura = x.folio;
+      render();
+    };
+    const bCap = document.getElementById('btnCap_'+x.folio);
+    if(bCap) bCap.onclick = ()=>{ folioCaptura = x.folio; render(); };
+    const bD = document.getElementById('btnDet_'+x.folio);
+    if(bD) bD.onclick = ()=> vistaDetalle(x.folio);
+  });
+  hist.forEach(x=>{ const b=document.getElementById('btnDet_'+x.folio); if(b) b.onclick=()=>vistaDetalle(x.folio); });
+}
+function tarjetaAjustador(x){
+  let acciones = '';
+  if(x.estado==='ASIGNADO'){
+    acciones = `<button class="btn ver bloque" id="btnAcep_${x.folio}">✓ Aceptar asignación</button>`;
+  } else if(x.estado==='ACEPTADO'){
+    acciones = `<div class="grid g3">
+      <button class="btn" id="btnRuta_${x.folio}">🗺️ Ruta y tiempo (Google Maps)</button>
+      <button class="btn sec" id="btnComp_${x.folio}">${window._watchFolio===x.folio?'⏹ Dejar de compartir':'📡 Compartir mi ubicación'}</button>
+      <button class="btn amb" id="btnArr_${x.folio}">🏁 Registrar arribo</button>
+    </div>`;
+  } else if(x.estado==='ARRIBO'){
+    acciones = `<button class="btn amb bloque" id="btnCap_${x.folio}">📝 Continuar captura del siniestro</button>`;
+  }
+  return `<div class="lista-item">
+    <div class="fila1"><span class="folio">${esc(x.folio)}</span>${badgeEstado(x.estado)}</div>
+    <div class="meta"><b>${esc(x.tipo)}</b> · Póliza ${esc(x.poliza)} · ${esc(x.clienteNombre)} · Tel <a href="tel:${esc(x.clienteTel)}">${esc(x.clienteTel)}</a></div>
+    <div class="meta">🚗 ${esc(x.vehiculo.MARCA)} ${esc(x.vehiculo.TIPO)} ${esc(x.vehiculo.MODELO)} · Placas ${esc(x.vehiculo.PLACAS)} · ${esc(x.vehiculo.COLOR)}</div>
+    <div class="meta">📍 ${esc(x.ubi.texto||'Ubicación GPS')} ${x.ubi.lat? `· <a href="${linkMapa(x.ubi.lat,x.ubi.lng)}" target="_blank">ver mapa</a>`:''}</div>
+    <div class="meta">📝 ${esc(x.descripcion)}</div>
+    <div class="tiempos">
+      <span>Asignación: <b>${fmtH(x.fAsignacion)}</b></span>
+      <span>Aceptación: <b>${fmtH(x.fAceptacion)}</b></span>
+      <span>Arribo: <b>${fmtH(x.fArribo)}</b></span>
+    </div>
+    <div style="margin-top:10px">${acciones}</div>
+  </div>`;
+}
+
+/* Compartir ubicación del ajustador (GPS en vivo) */
+function alternarCompartir(folio, btn){
+  if(window._watchFolio===folio){ detenerCompartir(); render(); return; }
+  if(!navigator.geolocation){ toast('Este dispositivo no soporta GPS'); return; }
+  detenerCompartir();
+  window._watchFolio = folio;
+  window._watchId = navigator.geolocation.watchPosition(p=>{
+    const x = siniestros().find(z=>z.folio===folio);
+    if(!x){ detenerCompartir(); return; }
+    x.ubiAjustador = {lat:+p.coords.latitude.toFixed(6), lng:+p.coords.longitude.toFixed(6), ts:Date.now()};
+    guardarSiniestro(x);
+  }, e=>{ toast('GPS: '+e.message); detenerCompartir(); }, {enableHighAccuracy:true, maximumAge:10000});
+  toast('Compartiendo tu ubicación con cliente, supervisor y administrador');
+  bit('Ajustador comenzó a compartir ubicación · '+folio);
+  render();
+}
+function detenerCompartir(){
+  if(window._watchId!=null){ try{ navigator.geolocation.clearWatch(window._watchId); }catch(e){} }
+  window._watchId = null; window._watchFolio = null;
+}
+
+/* ================= CAPTURA EN SITIO (AJUSTADOR) ================= */
+function vistaCaptura(x){
+  const c = x.captura || {};
+  const v = (k, def='') => esc(c[k] !== undefined ? c[k] : def);
+  $('#app').innerHTML = `
+  <div class="card">
+    <h2>📝 Captura en sitio · <span class="folio">${esc(x.folio)}</span> ${badgeEstado(x.estado)}</h2>
+    <div class="meta">Arribo registrado: <b>${fmtFH(x.fArribo)}</b></div>
+
+    <h3>Afiliado</h3>
+    <div class="grid g2">
+      <div><label class="cmp">Nombre del afiliado</label><input type="text" id="cAfiNombre" value="${v('afiNombre', x.clienteNombre)}"></div>
+      <div><label class="cmp">Nombre del conductor</label><input type="text" id="cAfiConductor" value="${v('afiConductor')}"></div>
+      <div><label class="cmp">Domicilio</label><input type="text" id="cAfiDom" value="${v('afiDom', (buscarPoliza(x.poliza)||{}).DOMICILIO||'')}"></div>
+      <div><label class="cmp">Colonia</label><input type="text" id="cAfiCol" value="${v('afiCol', (buscarPoliza(x.poliza)||{}).COLONIA||'')}"></div>
+      <div><label class="cmp">Teléfono</label><input type="tel" id="cAfiTel" value="${v('afiTel', x.clienteTel)}"></div>
+    </div>
+
+    <h3>Datos del vehículo afiliado</h3>
+    <div class="grid g3">
+      <div><label class="cmp">Marca</label><input type="text" id="cVaMarca" value="${v('vaMarca', x.vehiculo.MARCA)}"></div>
+      <div><label class="cmp">Modelo</label><input type="text" id="cVaModelo" value="${v('vaModelo', x.vehiculo.MODELO)}"></div>
+      <div><label class="cmp">Tipo</label><input type="text" id="cVaTipo" value="${v('vaTipo', x.vehiculo.TIPO)}"></div>
+      <div><label class="cmp">Placas</label><input type="text" id="cVaPlacas" value="${v('vaPlacas', x.vehiculo.PLACAS)}"></div>
+      <div><label class="cmp">Serie</label><input type="text" id="cVaSerie" value="${v('vaSerie', x.vehiculo.SERIE)}"></div>
+      <div><label class="cmp">Color</label><input type="text" id="cVaColor" value="${v('vaColor', x.vehiculo.COLOR)}"></div>
+    </div>
+
+    <h3>Versión del conductor</h3>
+    <div class="grid">
+      <div><label class="cmp">Versión del conductor</label><textarea id="cVersionCond">${v('versionCond')}</textarea></div>
+      <div><label class="cmp">Ubicación del accidente</label><input type="text" id="cUbiAcc" value="${v('ubiAcc', x.ubi.texto||'')}"></div>
+      <div><label class="cmp">Firma del conductor</label>
+        <div class="firma-wrap"><canvas id="canvFirmaCond"></canvas></div>
+        <div class="firma-acciones"><button class="btn mini sec" type="button" id="limpFirmaCond">Limpiar firma</button></div>
+      </div>
+      <div><label class="cmp">El afiliado es:</label>
+        <div class="radio-grupo" id="grpRol">
+          <label id="lblResp"><input type="radio" name="rolAfi" value="RESPONSABLE" ${c.rolAfiliado==='RESPONSABLE'?'checked':''}> Responsable</label>
+          <label id="lblAfec"><input type="radio" name="rolAfi" value="AFECTADO" ${c.rolAfiliado==='AFECTADO'?'checked':''}> Afectado</label>
+        </div>
+      </div>
+    </div>
+
+    <h3>Tercero</h3>
+    <div class="grid g2">
+      <div><label class="cmp">Nombre del afiliado (tercero)</label><input type="text" id="cTeNombre" value="${v('teNombre')}"></div>
+      <div><label class="cmp">Nombre del conductor</label><input type="text" id="cTeConductor" value="${v('teConductor')}"></div>
+      <div><label class="cmp">Domicilio</label><input type="text" id="cTeDom" value="${v('teDom')}"></div>
+      <div><label class="cmp">Colonia</label><input type="text" id="cTeCol" value="${v('teCol')}"></div>
+      <div><label class="cmp">Teléfono</label><input type="tel" id="cTeTel" value="${v('teTel')}"></div>
+    </div>
+
+    <h3>Datos del vehículo tercero</h3>
+    <div class="grid g3">
+      <div><label class="cmp">Marca</label><input type="text" id="cVtMarca" value="${v('vtMarca')}"></div>
+      <div><label class="cmp">Modelo</label><input type="text" id="cVtModelo" value="${v('vtModelo')}"></div>
+      <div><label class="cmp">Tipo</label><input type="text" id="cVtTipo" value="${v('vtTipo')}"></div>
+      <div><label class="cmp">Placas</label><input type="text" id="cVtPlacas" value="${v('vtPlacas')}"></div>
+      <div><label class="cmp">Serie</label><input type="text" id="cVtSerie" value="${v('vtSerie')}"></div>
+      <div><label class="cmp">Color</label><input type="text" id="cVtColor" value="${v('vtColor')}"></div>
+      <div><label class="cmp">Aseguradora</label><input type="text" id="cAseg" value="${v('aseguradora')}"></div>
+      <div><label class="cmp">Ajustador tercero</label><input type="text" id="cAjuTer" value="${v('ajustadorTercero')}"></div>
+    </div>
+
+    <h3>Afiliado · Observaciones y firma</h3>
+    <div class="grid">
+      <div><label class="cmp">Observaciones del ajustador (sobre el afiliado)</label><textarea id="cObsAfi">${v('obsAfiliado')}</textarea></div>
+      <div><label class="cmp">Firma del afiliado</label>
+        <div class="firma-wrap"><canvas id="canvFirmaAfi"></canvas></div>
+        <div class="firma-acciones"><button class="btn mini sec" type="button" id="limpFirmaAfi">Limpiar firma</button></div>
+      </div>
+    </div>
+
+    <h3>Versión del ajustador</h3>
+    <div class="grid">
+      <div><label class="cmp">Versión del ajustador</label><textarea id="cVersionAju">${v('versionAju')}</textarea></div>
+      <div><label class="cmp">Observaciones</label><textarea id="cObsAju">${v('obsAju')}</textarea></div>
+      <div><label class="cmp">Croquis del accidente (dibujo a mano alzada)</label>
+        <div class="firma-wrap croquis-wrap"><canvas id="canvCroquis"></canvas></div>
+        <div class="firma-acciones">
+          <span class="meta">Trazo:</span>
+          <button class="btn mini sec" type="button" data-col="#1e293b" style="border-bottom:3px solid #1e293b">Negro</button>
+          <button class="btn mini sec" type="button" data-col="#b91c1c" style="border-bottom:3px solid #b91c1c">Rojo</button>
+          <button class="btn mini sec" type="button" data-col="#16335f" style="border-bottom:3px solid #16335f">Azul</button>
+          <button class="btn mini sec" type="button" id="limpCroquis">Limpiar croquis</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="acciones-flot">
+      <button class="btn" id="btnGuardarCap">💾 Guardar avance</button>
+      <button class="btn ver" id="btnConcluir">✅ Concluir siniestro</button>
+      <button class="btn sec" id="btnVolverAju">← Volver a mis servicios</button>
+    </div>
+  </div>`;
+
+  const padCond = crearPad($('#canvFirmaCond'), c.firmaConductor);
+  const padAfi  = crearPad($('#canvFirmaAfi'),  c.firmaAfiliado);
+  const padCro  = crearPad($('#canvCroquis'),   c.croquis);
+  $('#limpFirmaCond').onclick = ()=> padCond.limpiar();
+  $('#limpFirmaAfi').onclick  = ()=> padAfi.limpiar();
+  $('#limpCroquis').onclick   = ()=> padCro.limpiar();
+  $$('#app [data-col]').forEach(b=> b.onclick = ()=> padCro.color(b.dataset.col));
+
+  function marcarRol(){
+    const val = (document.querySelector('input[name=rolAfi]:checked')||{}).value;
+    $('#lblResp').classList.toggle('sel-resp', val==='RESPONSABLE');
+    $('#lblAfec').classList.toggle('sel-afec', val==='AFECTADO');
+  }
+  $$('input[name=rolAfi]').forEach(r=> r.onchange = marcarRol);
+  marcarRol();
+
+  function recolectar(){
+    const g = id => document.getElementById(id).value.trim();
+    x.captura = {
+      afiNombre:g('cAfiNombre'), afiConductor:g('cAfiConductor'), afiDom:g('cAfiDom'), afiCol:g('cAfiCol'), afiTel:g('cAfiTel'),
+      vaMarca:g('cVaMarca'), vaModelo:g('cVaModelo'), vaTipo:g('cVaTipo'), vaPlacas:g('cVaPlacas'), vaSerie:g('cVaSerie'), vaColor:g('cVaColor'),
+      versionCond:g('cVersionCond'), ubiAcc:g('cUbiAcc'),
+      rolAfiliado:(document.querySelector('input[name=rolAfi]:checked')||{}).value||'',
+      teNombre:g('cTeNombre'), teConductor:g('cTeConductor'), teDom:g('cTeDom'), teCol:g('cTeCol'), teTel:g('cTeTel'),
+      vtMarca:g('cVtMarca'), vtModelo:g('cVtModelo'), vtTipo:g('cVtTipo'), vtPlacas:g('cVtPlacas'), vtSerie:g('cVtSerie'), vtColor:g('cVtColor'),
+      aseguradora:g('cAseg'), ajustadorTercero:g('cAjuTer'),
+      obsAfiliado:g('cObsAfi'), versionAju:g('cVersionAju'), obsAju:g('cObsAju'),
+      firmaConductor: padCond.dataURL(), firmaAfiliado: padAfi.dataURL(), croquis: padCro.dataURL()
+    };
+  }
+  $('#btnGuardarCap').onclick = ()=>{ recolectar(); guardarSiniestro(x); bit('Captura guardada · '+x.folio); toast('Avance guardado'); };
+  $('#btnConcluir').onclick = ()=>{
+    if(!confirm('¿Concluir el siniestro '+x.folio+'? Se cerrará el expediente.')) return;
+    recolectar();
+    x.estado='CONCLUIDO'; x.fCierre=Date.now();
+    guardarSiniestro(x);
+    bit('Siniestro concluido · '+x.folio);
+    folioCaptura = null;
+    toast('Siniestro concluido');
+    render();
+  };
+  $('#btnVolverAju').onclick = ()=>{ recolectar(); guardarSiniestro(x); folioCaptura=null; render(); };
+}
+
+/* Lienzo para firmas y croquis (dedo, lápiz o mouse) */
+function crearPad(canvas, dataPrevio){
+  const ctx = canvas.getContext('2d');
+  let dibujando=false, tiene=!!dataPrevio, colorAct='#1e293b';
+  function ajustar(){
+    const r = canvas.getBoundingClientRect();
+    const d = window.devicePixelRatio||1;
+    canvas.width = r.width*d; canvas.height = r.height*d;
+    ctx.setTransform(d,0,0,d,0,0);
+    ctx.lineWidth=2.4; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle=colorAct;
+    if(dataPrevio){ const im=new Image(); im.onload=()=>ctx.drawImage(im,0,0,r.width,r.height); im.src=dataPrevio; }
+  }
+  ajustar();
+  function pos(e){
+    const r = canvas.getBoundingClientRect();
+    return {x:e.clientX-r.left, y:e.clientY-r.top};
+  }
+  canvas.addEventListener('pointerdown', e=>{
+    e.preventDefault(); canvas.setPointerCapture(e.pointerId);
+    dibujando=true; tiene=true; ctx.strokeStyle=colorAct;
+    const p=pos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p.x+.1,p.y+.1); ctx.stroke();
+  });
+  canvas.addEventListener('pointermove', e=>{
+    if(!dibujando) return; e.preventDefault();
+    const p=pos(e); ctx.lineTo(p.x,p.y); ctx.stroke();
+  });
+  ['pointerup','pointercancel','pointerleave'].forEach(ev=> canvas.addEventListener(ev, ()=>{ dibujando=false; }));
+  return {
+    limpiar(){ ctx.clearRect(0,0,canvas.width,canvas.height); tiene=false; dataPrevio=null; },
+    color(c){ colorAct=c; },
+    dataURL(){ return tiene ? canvas.toDataURL('image/png') : (dataPrevio||null); }
+  };
+}
+</script>
+<script>
+/* ================= EXPEDIENTE (DETALLE) ================= */
+function vistaDetalle(folio){
+  const x = siniestros().find(z=>z.folio===folio);
+  if(!x){ render(); return; }
+  const c = x.captura||{};
+  const d = (et,va)=>`<div class="dato"><b>${et}</b><span>${esc(va||'—')}</span></div>`;
+  const img = (et,src)=> src? `<div style="margin:8px 0"><label class="cmp">${et}</label><img class="img-cap" src="${src}" alt="${et}"></div>` : '';
+  $('#app').innerHTML = `
+  <div class="card">
+    <h2>📄 Expediente <span class="folio">${esc(x.folio)}</span> ${badgeEstado(x.estado)}</h2>
+    <div class="grid g2">
+      <div>
+        ${d('Tipo', x.tipo)}${d('Póliza', x.poliza)}${d('Cliente', x.clienteNombre)}${d('Teléfono', x.clienteTel)}
+        ${d('Vehículo', x.vehiculo.MARCA+' '+x.vehiculo.TIPO+' '+x.vehiculo.MODELO)}${d('Placas', x.vehiculo.PLACAS)}
+      </div>
+      <div>
+        ${d('Reporte', fmtFH(x.fReporte))}${d('Asignación', fmtFH(x.fAsignacion))}${d('Aceptación', fmtFH(x.fAceptacion))}
+        ${d('Arribo', fmtFH(x.fArribo))}${d('Cierre', fmtFH(x.fCierre))}${d('Ajustador', x.ajustadorNombre)}
+      </div>
+    </div>
+    ${d('Ubicación reportada', (x.ubi.texto||'')+(x.ubi.lat? ' ('+x.ubi.lat+', '+x.ubi.lng+')':''))}
+    ${d('Descripción del cliente', x.descripcion)}
+
+    <h3>Afiliado</h3>
+    <div class="grid g2"><div>${d('Nombre',c.afiNombre)}${d('Conductor',c.afiConductor)}${d('Teléfono',c.afiTel)}</div>
+    <div>${d('Domicilio',c.afiDom)}${d('Colonia',c.afiCol)}${d('Responsable / Afectado',c.rolAfiliado)}</div></div>
+    <div class="grid g2"><div>${d('Vehículo',(c.vaMarca||'')+' '+(c.vaTipo||'')+' '+(c.vaModelo||''))}${d('Placas',c.vaPlacas)}</div>
+    <div>${d('Serie',c.vaSerie)}${d('Color',c.vaColor)}</div></div>
+    ${d('Versión del conductor', c.versionCond)}
+    ${d('Ubicación del accidente', c.ubiAcc)}
+    ${img('Firma del conductor', c.firmaConductor)}
+
+    <h3>Tercero</h3>
+    <div class="grid g2"><div>${d('Nombre',c.teNombre)}${d('Conductor',c.teConductor)}${d('Teléfono',c.teTel)}</div>
+    <div>${d('Domicilio',c.teDom)}${d('Colonia',c.teCol)}</div></div>
+    <div class="grid g2"><div>${d('Vehículo',(c.vtMarca||'')+' '+(c.vtTipo||'')+' '+(c.vtModelo||''))}${d('Placas',c.vtPlacas)}</div>
+    <div>${d('Serie',c.vtSerie)}${d('Color',c.vtColor)}</div></div>
+    <div class="grid g2"><div>${d('Aseguradora',c.aseguradora)}</div><div>${d('Ajustador tercero',c.ajustadorTercero)}</div></div>
+
+    <h3>Observaciones y firmas</h3>
+    ${d('Observaciones (afiliado)', c.obsAfiliado)}
+    ${img('Firma del afiliado', c.firmaAfiliado)}
+    ${d('Versión del ajustador', c.versionAju)}
+    ${d('Observaciones del ajustador', c.obsAju)}
+    ${img('Croquis del accidente', c.croquis)}
+
+    <div class="acciones-flot no-print">
+      <button class="btn sec" id="btnVolverDet">← Volver</button>
+      <button class="btn" onclick="window.print()">🖨️ Imprimir / PDF</button>
+    </div>
+  </div>`;
+  $('#btnVolverDet').onclick = ()=> render();
+}
+
+/* ================= VISTA ADMIN ================= */
+let tabAdm = 'SIN';
+function vistaAdmin(){
+  const tabs = [['SIN','Siniestros'],['DAT','Datos'],['USU','Usuarios'],['AJU','Ajustadores'],['BIT','Bitácora']];
+  $('#app').innerHTML = `
+  <div class="card">
+    <h2>⚙️ Administración</h2>
+    <div class="tabs">${tabs.map(t=>`<button data-t="${t[0]}" class="${tabAdm===t[0]?'on':''}">${t[1]}</button>`).join('')}</div>
+    <div id="zonaAdm"></div>
+  </div>`;
+  $$('.tabs button').forEach(b=> b.onclick=()=>{ tabAdm=b.dataset.t; vistaAdmin(); });
+  const z = $('#zonaAdm');
+
+  if(tabAdm==='SIN'){
+    const lista = siniestros();
+    z.innerHTML = lista.length? lista.map(x=>tarjetaSiniestroStaff(x,'admin')).join('') : '<div class="meta">Sin siniestros registrados.</div>';
+    conectarAccionesStaff(lista,'admin');
+  }
+
+  if(tabAdm==='DAT'){
+    const nP = DB.get(K.POL,[]).length, nG = DB.get(K.PAG,[]).length;
+    z.innerHTML = `
+      <div class="ok-box">Pólizas cargadas: <b>${nP}</b> · Registros de pago: <b>${nG}</b></div>
+      <label class="cmp">Cargar archivo Excel (hojas: "polizas" y "pagos", como en CONSULTA_POLIZAS.xlsx)</label>
+      <input type="file" id="inpExcel" accept=".xlsx,.xls" style="margin:6px 0 12px">
+      <div class="aviso">Columnas reconocidas en pólizas: POLIZA, NOMBRE, TELEFONO, DOMICILIO, COLONIA, MARCA, MODELO, TIPO, PLACAS, SERIE, COLOR, VIGENCIA. En pagos: IDPOLIZA, RECIBO, VENCIMIENTO, MONTO, ESTATUS.</div>`;
+    $('#inpExcel').onchange = e=>{
+      const f = e.target.files[0]; if(!f) return;
+      const r = new FileReader();
+      r.onload = ev=>{
+        try{
+          const wb = XLSX.read(new Uint8Array(ev.target.result), {type:'array'});
+          const hP = wb.SheetNames.find(n=>/poliza/i.test(n)) || wb.SheetNames[0];
+          const hG = wb.SheetNames.find(n=>/pago/i.test(n));
+          const al = {POLIZA:['POLIZA','NUMPOLIZA','NOPOLIZA','NUMEROPOLIZA','NUMERODEPOLIZA'],NOMBRE:['NOMBRE','AFILIADO','CLIENTE'],TELEFONO:['TELEFONO','TEL','CELULAR'],DOMICILIO:['DOMICILIO','DIRECCION'],COLONIA:['COLONIA'],MARCA:['MARCA'],MODELO:['MODELO','ANO','ANIO'],TIPO:['TIPO','VERSION','SUBMARCA'],PLACAS:['PLACAS','PLACA'],SERIE:['SERIE','VIN','NIV'],COLOR:['COLOR'],VIGENCIA:['VIGENCIA','FINVIGENCIA','VENCIMIENTO'],ASESOR:['ASESOR']};
+          function mapear(fila, dic){
+            const claves = {}; Object.keys(fila).forEach(k=> claves[norm(k).replace(/[^A-Z0-9]/g,'')] = fila[k]);
+            const o = {};
+            Object.keys(dic).forEach(dest=>{ const a = dic[dest].find(x=> claves[x]!==undefined); o[dest] = a!==undefined? String(claves[a]).trim() : ''; });
+            return o;
+          }
+          const pols = XLSX.utils.sheet_to_json(wb.Sheets[hP], {defval:'', raw:false}).map(f=>mapear(f, al)).filter(p=>p.POLIZA);
+          DB.set(K.POL, pols);
+          let pags = [];
+          if(hG){
+            const alG = {IDPOLIZA:['IDPOLIZA','POLIZA','NUMPOLIZA'],RECIBO:['RECIBO','NORECIBO','PAGO'],VENCIMIENTO:['VENCIMIENTO','FECHAVENCIMIENTO','FECHA'],MONTO:['MONTO','IMPORTE','CANTIDAD'],ESTATUS:['ESTATUS','ESTADO','STATUS']};
+            pags = XLSX.utils.sheet_to_json(wb.Sheets[hG], {defval:'', raw:false}).map(f=>mapear(f, alG)).filter(p=>p.IDPOLIZA);
+            DB.set(K.PAG, pags);
+          }
+          bit('Excel cargado: '+pols.length+' pólizas, '+pags.length+' pagos');
+          toast('Cargadas '+pols.length+' pólizas y '+pags.length+' pagos');
+          vistaAdmin();
+        }catch(err){ toast('Error al leer el archivo: '+err.message); }
+      };
+      r.readAsArrayBuffer(f);
+    };
+  }
+
+  if(tabAdm==='USU'){
+    const us = DB.get(K.USU,[]);
+    z.innerHTML = `
+      <div class="tb-scroll"><table class="tb">
+        <tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th></th></tr>
+        ${us.map((u,i)=>`<tr><td>${esc(u.usuario)}</td><td>${esc(u.nombre)}</td><td><span class="badge b-azul">${esc(u.rol)}</span></td>
+        <td><button class="btn mini roj" data-baja="${i}">Baja</button></td></tr>`).join('')}
+      </table></div>
+      <h3>Alta de usuario</h3>
+      <div class="grid g2">
+        <div><label class="cmp">Usuario</label><input type="text" id="nuUsu"></div>
+        <div><label class="cmp">Nombre completo</label><input type="text" id="nuNom"></div>
+        <div><label class="cmp">Rol</label><select id="nuRol"><option value="admin">Admin</option><option value="responsable">Responsable de siniestros</option><option value="ajustador" selected>Ajustador</option></select></div>
+        <div><label class="cmp">Contraseña</label><input type="password" id="nuPas"></div>
+        <button class="btn ver" id="btnAltaUsu">Dar de alta</button>
+      </div>`;
+    $$('#zonaAdm [data-baja]').forEach(b=> b.onclick = ()=>{
+      const i = +b.dataset.baja;
+      if(us[i].usuario===sesion().usuario){ toast('No puedes dar de baja tu propio usuario'); return; }
+      if(!confirm('¿Dar de baja a '+us[i].nombre+'?')) return;
+      bit('Baja de usuario '+us[i].usuario);
+      us.splice(i,1); DB.set(K.USU,us); vistaAdmin();
+    });
+    $('#btnAltaUsu').onclick = ()=>{
+      const u = $('#nuUsu').value.trim().toLowerCase(), n = $('#nuNom').value.trim(), p = $('#nuPas').value;
+      if(!u||!n||p.length<6){ toast('Completa los datos (contraseña mínimo 6 caracteres)'); return; }
+      if(us.some(x=>x.usuario===u)){ toast('Ese usuario ya existe'); return; }
+      us.push({usuario:u, nombre:n, rol:$('#nuRol').value, hash:sha256(p)});
+      DB.set(K.USU,us); bit('Alta de usuario '+u); toast('Usuario creado'); vistaAdmin();
+    };
+  }
+
+  if(tabAdm==='AJU'){
+    const aj = DB.get(K.AJU,[]);
+    const usAju = DB.get(K.USU,[]).filter(u=>u.rol==='ajustador');
+    z.innerHTML = `
+      <div class="tb-scroll"><table class="tb">
+        <tr><th>Nombre</th><th>Teléfono</th><th>Usuario app</th><th></th></tr>
+        ${aj.map((a,i)=>`<tr><td>${esc(a.nombre)}</td><td>${esc(a.telefono)}</td><td>${esc(a.usuario||'—')}</td>
+        <td><button class="btn mini roj" data-baja="${i}">Baja</button></td></tr>`).join('')}
+      </table></div>
+      <h3>Alta de ajustador (catálogo)</h3>
+      <div class="grid g2">
+        <div><label class="cmp">Nombre</label><input type="text" id="naNom"></div>
+        <div><label class="cmp">Teléfono</label><input type="tel" id="naTel"></div>
+        <div><label class="cmp">Usuario de la app (rol ajustador)</label>
+          <select id="naUsu"><option value="">— sin usuario —</option>${usAju.map(u=>`<option value="${esc(u.usuario)}">${esc(u.usuario)} · ${esc(u.nombre)}</option>`).join('')}</select></div>
+        <button class="btn ver" id="btnAltaAju" style="align-self:end">Agregar al catálogo</button>
+      </div>
+      <div class="aviso">El ajustador necesita un usuario con rol "ajustador" para recibir y aceptar asignaciones en la app.</div>`;
+    $$('#zonaAdm [data-baja]').forEach(b=> b.onclick = ()=>{
+      const i=+b.dataset.baja;
+      if(!confirm('¿Quitar del catálogo a '+aj[i].nombre+'?')) return;
+      bit('Baja de ajustador '+aj[i].nombre);
+      aj.splice(i,1); DB.set(K.AJU,aj); vistaAdmin();
+    });
+    $('#btnAltaAju').onclick = ()=>{
+      const n=$('#naNom').value.trim(), t=$('#naTel').value.trim();
+      if(!n){ toast('Captura el nombre'); return; }
+      aj.push({id:'A'+Date.now(), nombre:n, telefono:t, usuario:$('#naUsu').value||null});
+      DB.set(K.AJU,aj); bit('Alta de ajustador '+n); toast('Ajustador agregado'); vistaAdmin();
+    };
+  }
+
+  if(tabAdm==='BIT'){
+    const b = DB.get(K.BIT,[]);
+    z.innerHTML = `<div class="tb-scroll"><table class="tb">
+      <tr><th>Fecha y hora</th><th>Usuario</th><th>Acción</th></tr>
+      ${b.length? b.map(e=>`<tr><td style="white-space:nowrap">${fmtFH(e.ts)}</td><td>${esc(e.usuario)}</td><td>${esc(e.accion)}</td></tr>`).join('') : '<tr><td colspan="3">Bitácora vacía.</td></tr>'}
+    </table></div>`;
+  }
+}
+
+/* ================= ARRANQUE ================= */
+function render(){
+  const s = sesion();
+  $('#chipUsuario').style.display = s? '' : 'none';
+  $('#btnSalir').style.display = s? '' : 'none';
+  if(s) $('#chipUsuario').textContent = (s.tipo==='cliente'? '👤 ' : '🛠️ ') + s.nombre;
+  if(!s){ vistaLogin(); return; }
+  if(s.rol==='cliente') vistaCliente();
+  else if(s.rol==='responsable') vistaResponsable();
+  else if(s.rol==='ajustador') vistaAjustador();
+  else vistaAdmin();
+}
+$('#btnSalir').onclick = ()=>{ bit('Cierre de sesión'); cerrarSesion(); };
+sembrarDemo();
+render();
+/* Refresco ligero: si otra pestaña del mismo dispositivo cambia datos, actualizar */
+window.addEventListener('storage', e=>{ if(e.key===K.SIN && !folioCaptura) render(); });
+</script>
+</body>
+</html>
