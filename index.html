@@ -468,6 +468,14 @@ function tarjetaSiniestroStaff(x, modo){
         <select id="selAju_${x.folio}">${aju.map(a=>`<option value="${esc(a.id)}">${esc(a.nombre)}</option>`).join('')}</select></div>
       <button class="btn ver" id="btnAsig_${x.folio}">✓ Autorizar y asignar</button>
     </div>` : '';
+  const otros = aju.filter(a => a.nombre !== x.ajustadorNombre);
+  const reasignar = (modo==='resp' && ['ASIGNADO','ACEPTADO'].includes(x.estado)) ? (otros.length ? `
+    <div class="grid g2" style="margin-top:10px;align-items:end">
+      <div><label class="cmp">Reasignar a otro ajustador</label>
+        <select id="selRea_${x.folio}">${otros.map(a=>`<option value="${esc(a.id)}">${esc(a.nombre)}</option>`).join('')}</select></div>
+      <button class="btn amb" id="btnRea_${x.folio}">↪ Reasignar servicio</button>
+    </div>` : '<div class="aviso" style="margin-top:10px">No hay otros ajustadores en el catálogo para reasignar.</div>') : '';
+  const histRea = (x.reasignaciones&&x.reasignaciones.length) ? `<div class="meta">↪ Reasignado ${x.reasignaciones.length} vez(ces) · Última: ${esc(x.reasignaciones[x.reasignaciones.length-1].de)} → ${esc(x.reasignaciones[x.reasignaciones.length-1].a)} (${fmtH(x.reasignaciones[x.reasignaciones.length-1].ts)})</div>` : '';
   const ubiA = x.ubiAjustador ? `<div class="meta">📍 Ajustador: <a href="${linkMapa(x.ubiAjustador.lat,x.ubiAjustador.lng)}" target="_blank">ver ubicación</a> (${fmtH(x.ubiAjustador.ts)})</div>` : '';
   return `<div class="lista-item">
     <div class="fila1"><span class="folio">${esc(x.folio)}</span>${badgeEstado(x.estado)}</div>
@@ -476,6 +484,7 @@ function tarjetaSiniestroStaff(x, modo){
     <div class="meta">📍 ${esc(x.ubi.texto||'Ubicación GPS')} ${x.ubi.lat? `· <a href="${linkMapa(x.ubi.lat,x.ubi.lng)}" target="_blank">ver mapa</a>`:''}</div>
     <div class="meta">📝 ${esc(x.descripcion)}</div>
     ${x.ajustadorNombre? `<div class="meta">👷 Ajustador: <b>${esc(x.ajustadorNombre)}</b></div>`:''}
+    ${histRea}
     ${ubiA}
     <div class="tiempos">
       <span>Reporte: <b>${fmtFH(x.fReporte)}</b></span>
@@ -485,6 +494,7 @@ function tarjetaSiniestroStaff(x, modo){
       <span>Cierre: <b>${fmtH(x.fCierre)}</b></span>
     </div>
     ${asignar}
+    ${reasignar}
     <div class="acciones-flot">
       <button class="btn mini sec" id="btnDet_${x.folio}">Ver expediente</button>
     </div>
@@ -501,6 +511,21 @@ function conectarAccionesStaff(lista, modo){
       guardarSiniestro(x);
       bit('Siniestro '+x.folio+' autorizado y asignado a '+aju.nombre);
       toast('Asignado a '+aju.nombre);
+      render();
+    };
+    const bR = document.getElementById('btnRea_'+x.folio);
+    if(bR) bR.onclick = ()=>{
+      const nuevo = DB.get(K.AJU,[]).find(a=>a.id===document.getElementById('selRea_'+x.folio).value);
+      if(!nuevo){ toast('Selecciona un ajustador'); return; }
+      if(!nuevo.usuario){ toast('Ese ajustador no tiene usuario de la app; asígnale uno en Administración → Ajustadores'); return; }
+      if(!confirm('¿Reasignar el siniestro '+x.folio+' de '+x.ajustadorNombre+' a '+nuevo.nombre+'?')) return;
+      x.reasignaciones = x.reasignaciones || [];
+      x.reasignaciones.push({de:x.ajustadorNombre, a:nuevo.nombre, ts:Date.now()});
+      bit('Siniestro '+x.folio+' reasignado de '+x.ajustadorNombre+' a '+nuevo.nombre);
+      x.ajustadorUsuario=nuevo.usuario; x.ajustadorNombre=nuevo.nombre; x.ajustadorTel=nuevo.telefono;
+      x.estado='ASIGNADO'; x.fAsignacion=Date.now(); x.fAceptacion=null; x.fArribo=null; x.ubiAjustador=null;
+      guardarSiniestro(x);
+      toast('Servicio reasignado a '+nuevo.nombre);
       render();
     };
     const bD = document.getElementById('btnDet_'+x.folio);
@@ -808,6 +833,7 @@ function vistaDetalle(folio){
       <div>
         ${d('Reporte', fmtFH(x.fReporte))}${d('Asignación', fmtFH(x.fAsignacion))}${d('Aceptación', fmtFH(x.fAceptacion))}
         ${d('Arribo', fmtFH(x.fArribo))}${d('Cierre', fmtFH(x.fCierre))}${d('Ajustador', x.ajustadorNombre)}
+        ${(x.reasignaciones||[]).map(r=>`<div class="dato"><b>Reasignación</b><span>${fmtFH(r.ts)} · ${esc(r.de)} → ${esc(r.a)}</span></div>`).join('')}
       </div>
     </div>
     ${d('Ubicación reportada', (x.ubi.texto||'')+(x.ubi.lat? ' ('+x.ubi.lat+', '+x.ubi.lng+')':''))}
